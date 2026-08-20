@@ -9,6 +9,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import ru.quickslot.config.QuickSlotConfig;
+import ru.quickslot.config.RefillMode;
 import ru.quickslot.item.ItemCategory;
 import ru.quickslot.item.ItemClassifier;
 
@@ -21,6 +22,7 @@ public final class InventoryManager {
 
     private final Minecraft minecraft = Minecraft.getMinecraft();
     private final QuickSlotConfig config;
+    private final ItemStack[] lastPreferredStacks = new ItemStack[9];
     private int cooldown;
 
     public InventoryManager(QuickSlotConfig config) {
@@ -42,12 +44,25 @@ public final class InventoryManager {
         if (player.openContainer != player.inventoryContainer) return;
 
         Container container = player.inventoryContainer;
+        rememberPreferredStacks(container);
 
         if (config.isRemoveResourcesFromHotbar() && moveOneResourceOutOfHotbar(player, container)) {
             cooldown = ACTION_COOLDOWN_TICKS;
             return;
         }
         if (config.isEnabled() && organizeOneSlot(player, container)) cooldown = ACTION_COOLDOWN_TICKS;
+    }
+
+    private void rememberPreferredStacks(Container container) {
+        for (int hotbarIndex = 0; hotbarIndex < 9; hotbarIndex++) {
+            ItemCategory rule = config.getRule(hotbarIndex);
+            ItemStack current = container.getSlot(HOTBAR_FIRST + hotbarIndex).getStack();
+            if (current == null || !ItemClassifier.matches(current, rule)) continue;
+
+            ItemStack remembered = current.copy();
+            remembered.stackSize = 1;
+            lastPreferredStacks[hotbarIndex] = remembered;
+        }
     }
 
     private boolean moveOneResourceOutOfHotbar(EntityPlayerSP player, Container container) {
@@ -78,21 +93,50 @@ public final class InventoryManager {
                 continue;
             }
 
-            if (ItemClassifier.matches(current, rule) && !isUpgradeable(rule)) continue;
-
-            int bestSource = findBestSource(container, rule, targetSlotNumber);
-            if (bestSource < 0) continue;
-
-            ItemStack bestStack = container.getSlot(bestSource).getStack();
-            if (ItemClassifier.matches(current, rule)
-                    && ItemClassifier.priority(current, rule) >= ItemClassifier.priority(bestStack, rule)) {
+            if (ItemClassifier.matches(current, rule)) {
+                if (isUpgradeable(rule)) {
+                    int betterSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex);
+                    if (betterSource >= 0) {
+                        ItemStack better = container.getSlot(betterSource).getStack();
+                        if (ItemClassifier.priority(better, rule) > ItemClassifier.priority(current, rule)) {
+                            minecraft.playerController.windowClick(container.windowId, betterSource, hotbarIndex, 2, player);
+                            return true;
+                        }
+                    }
+                } else if (shouldRefill(current)) {
+                    int mergeSource = findMergeSource(container, current);
+                    if (mergeSource >= 0) {
+                        mergeIntoHotbar(player, container, mergeSource, targetSlotNumber);
+                        return true;
+                    }
+                }
                 continue;
             }
+
+            int bestSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex);
+            if (bestSource < 0) continue;
 
             minecraft.playerController.windowClick(container.windowId, bestSource, hotbarIndex, 2, player);
             return true;
         }
         return false;
+    }
+
+    private boolean shouldRefill(ItemStack current) {
+        if (current == null || current.getMaxStackSize() <= 1 || current.stackSize >= current.getMaxStackSize()) return false;
+
+        RefillMode mode = config.getRefillMode();
+        if (mode == RefillMode.ALWAYS_MAX) return true;
+        if (mode == RefillMode.BELOW_THRESHOLD) {
+            return current.stackSize < Math.min(config.getRefillThreshold(), current.getMaxStackSize());
+        }
+        return false;
+    }
+
+    private void mergeIntoHotbar(EntityPlayerSP player, Container container, int sourceSlot, int targetSlot) {
+        minecraft.playerController.windowClick(container.windowId, sourceSlot, 0, 0, player);
+        minecraft.playerController.windowClick(container.windowId, targetSlot, 0, 0, player);
+        minecraft.playerController.windowClick(container.windowId, sourceSlot, 0, 0, player);
     }
 
     private boolean isUpgradeable(ItemCategory category) {
@@ -101,9 +145,10 @@ public final class InventoryManager {
                 || category == ItemCategory.AXE;
     }
 
-    private int findBestSource(Container container, ItemCategory category, int targetSlotNumber) {
+    private int findBestSource(Container container, ItemCategory category, int targetSlotNumber, int targetHotbarIndex) {
         int bestSlot = -1;
         int bestPriority = Integer.MIN_VALUE;
+        ItemStack preferred = category == ItemCategory.BLOCKS ? lastPreferredStacks[targetHotbarIndex] : null;
 
         for (int slotNumber = MAIN_FIRST; slotNumber <= HOTBAR_LAST; slotNumber++) {
             if (slotNumber == targetSlotNumber) continue;
@@ -117,6 +162,8 @@ public final class InventoryManager {
             }
 
             int priority = ItemClassifier.priority(stack, category);
+            if (preferred != null && sameStackKind(stack, preferred)) priority += 100000;
+
             if (priority > bestPriority) {
                 bestPriority = priority;
                 bestSlot = slotNumber;
@@ -125,13 +172,32 @@ public final class InventoryManager {
         return bestSlot;
     }
 
+    private int findMergeSource(Container container, ItemStack target) {
+        int bestSlot = -1;
+        int bestSize = -1;
+        for (int slotNumber = MAIN_FIRST; slotNumber <= MAIN_LAST; slotNumber++) {
+            ItemStack stack = container.getSlot(slotNumber).getStack();
+            if (stack == null || !sameStackKind(stack, target)) continue;
+            if (stack.stackSize > bestSize) {
+                bestSize = stack.stackSize;
+                bestSlot = slotNumber;
+            }
+        }
+        return bestSlot;
+    }
+
+    private boolean sameStackKind(ItemStack first, ItemStack second) {
+        if (first == null || second == null) return false;
+        if (first.getItem() != second.getItem() || first.getItemDamage() != second.getItemDamage()) return false;
+        if (first.hasTagCompound() != second.hasTagCompound()) return false;
+        return !first.hasTagCompound() || first.getTagCompound().equals(second.getTagCompound());
+    }
+
     private boolean canMoveToMain(Container container, ItemStack resource) {
         for (int slotNumber = MAIN_FIRST; slotNumber <= MAIN_LAST; slotNumber++) {
             ItemStack stack = container.getSlot(slotNumber).getStack();
             if (stack == null) return true;
-            if (stack.getItem() == resource.getItem()
-                    && stack.getItemDamage() == resource.getItemDamage()
-                    && stack.stackSize < stack.getMaxStackSize()) return true;
+            if (sameStackKind(stack, resource) && stack.stackSize < stack.getMaxStackSize()) return true;
         }
         return false;
     }

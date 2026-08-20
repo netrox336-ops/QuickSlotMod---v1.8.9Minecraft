@@ -23,7 +23,7 @@ import ru.quickslot.inventory.InventoryManager;
 public final class QuickSlot {
     public static final String MOD_ID = "quickslot";
     public static final String MOD_NAME = "QuickSlot";
-    public static final String VERSION = "0.2.0";
+    public static final String VERSION = "0.3.0";
 
     @Mod.Instance(MOD_ID)
     public static QuickSlot instance;
