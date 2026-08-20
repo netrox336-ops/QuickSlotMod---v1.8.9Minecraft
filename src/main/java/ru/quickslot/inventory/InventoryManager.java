@@ -2,6 +2,7 @@ package ru.quickslot.inventory;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -35,7 +36,10 @@ public final class InventoryManager {
         }
 
         EntityPlayerSP player = minecraft.thePlayer;
-        if (player == null || minecraft.theWorld == null || player.openContainer != player.inventoryContainer) return;
+        if (player == null || minecraft.theWorld == null) return;
+        if (minecraft.currentScreen instanceof GuiContainer) return;
+        if (player.openContainer != player.inventoryContainer) return;
+
         Container container = player.inventoryContainer;
 
         if (config.isRemoveResourcesFromHotbar() && moveOneResourceOutOfHotbar(player, container)) {
@@ -74,17 +78,29 @@ public final class InventoryManager {
                 continue;
             }
 
+            if (ItemClassifier.matches(current, rule) && !isUpgradeable(rule)) {
+                continue;
+            }
+
             int bestSource = findBestSource(container, rule, targetSlotNumber);
             if (bestSource < 0) continue;
 
             ItemStack bestStack = container.getSlot(bestSource).getStack();
             if (ItemClassifier.matches(current, rule)
-                    && ItemClassifier.priority(current, rule) >= ItemClassifier.priority(bestStack, rule)) continue;
+                    && ItemClassifier.priority(current, rule) >= ItemClassifier.priority(bestStack, rule)) {
+                continue;
+            }
 
             minecraft.playerController.windowClick(container.windowId, bestSource, hotbarIndex, 2, player);
             return true;
         }
         return false;
+    }
+
+    private boolean isUpgradeable(ItemCategory category) {
+        return category == ItemCategory.SWORD
+                || category == ItemCategory.PICKAXE
+                || category == ItemCategory.AXE;
     }
 
     private int findBestSource(Container container, ItemCategory category, int targetSlotNumber) {
