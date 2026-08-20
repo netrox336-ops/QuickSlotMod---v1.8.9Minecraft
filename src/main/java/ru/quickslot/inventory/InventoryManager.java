@@ -19,11 +19,14 @@ public final class InventoryManager {
     private static final int HOTBAR_FIRST = 36;
     private static final int HOTBAR_LAST = 44;
     private static final int ACTION_COOLDOWN_TICKS = 2;
+    private static final int MANUAL_GRACE_TICKS = 10;
 
     private final Minecraft minecraft = Minecraft.getMinecraft();
     private final QuickSlotConfig config;
     private final ItemStack[] lastPreferredStacks = new ItemStack[9];
     private int cooldown;
+    private int manualGraceTicks;
+    private boolean wasContainerOpen;
 
     public InventoryManager(QuickSlotConfig config) {
         this.config = config;
@@ -32,15 +35,34 @@ public final class InventoryManager {
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
-        if (!config.isEnabled() && !config.isRemoveResourcesFromHotbar()) return;
+        if (!config.isEnabled()
+                && !config.isRemoveResourcesFromHotbar()
+                && !config.isStackConsolidationEnabled()) return;
+
+        EntityPlayerSP player = minecraft.thePlayer;
+        if (player == null || minecraft.theWorld == null) return;
+
+        boolean containerOpen = minecraft.currentScreen instanceof GuiContainer;
+        if (containerOpen) {
+            wasContainerOpen = true;
+            return;
+        }
+
+        if (wasContainerOpen) {
+            wasContainerOpen = false;
+            manualGraceTicks = config.isManualGraceEnabled() ? MANUAL_GRACE_TICKS : 0;
+        }
+
+        if (manualGraceTicks > 0) {
+            manualGraceTicks--;
+            return;
+        }
+
         if (cooldown > 0) {
             cooldown--;
             return;
         }
 
-        EntityPlayerSP player = minecraft.thePlayer;
-        if (player == null || minecraft.theWorld == null) return;
-        if (minecraft.currentScreen instanceof GuiContainer) return;
         if (player.openContainer != player.inventoryContainer) return;
 
         Container container = player.inventoryContainer;
@@ -50,7 +72,13 @@ public final class InventoryManager {
             cooldown = ACTION_COOLDOWN_TICKS;
             return;
         }
-        if (config.isEnabled() && organizeOneSlot(player, container)) cooldown = ACTION_COOLDOWN_TICKS;
+        if (config.isEnabled() && organizeOneSlot(player, container)) {
+            cooldown = ACTION_COOLDOWN_TICKS;
+            return;
+        }
+        if (config.isStackConsolidationEnabled() && consolidateOneStack(player, container)) {
+            cooldown = ACTION_COOLDOWN_TICKS;
+        }
     }
 
     private void rememberPreferredStacks(Container container) {
@@ -109,15 +137,17 @@ public final class InventoryManager {
                             return true;
                         }
                     }
-                } else if (shouldRefill(current)) {
+                } else if (config.isRefillEnabled(hotbarIndex) && shouldRefill(current)) {
                     int mergeSource = findMergeSource(container, current);
                     if (mergeSource >= 0) {
-                        mergeIntoHotbar(player, container, mergeSource, targetSlotNumber);
+                        mergeStacks(player, container, mergeSource, targetSlotNumber);
                         return true;
                     }
                 }
                 continue;
             }
+
+            if (current == null && !config.isRefillEnabled(hotbarIndex)) continue;
 
             int bestSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
             if (bestSource < 0) continue;
@@ -139,7 +169,34 @@ public final class InventoryManager {
         return false;
     }
 
-    private void mergeIntoHotbar(EntityPlayerSP player, Container container, int sourceSlot, int targetSlot) {
+    private boolean consolidateOneStack(EntityPlayerSP player, Container container) {
+        int bestTarget = -1;
+        int bestSource = -1;
+        int bestTargetSize = -1;
+
+        for (int targetSlot = MAIN_FIRST; targetSlot <= MAIN_LAST; targetSlot++) {
+            ItemStack target = container.getSlot(targetSlot).getStack();
+            if (target == null || target.getMaxStackSize() <= 1 || target.stackSize >= target.getMaxStackSize()) continue;
+
+            for (int sourceSlot = MAIN_FIRST; sourceSlot <= MAIN_LAST; sourceSlot++) {
+                if (sourceSlot == targetSlot) continue;
+                ItemStack source = container.getSlot(sourceSlot).getStack();
+                if (source == null || !sameStackKind(source, target)) continue;
+
+                if (target.stackSize > bestTargetSize) {
+                    bestTargetSize = target.stackSize;
+                    bestTarget = targetSlot;
+                    bestSource = sourceSlot;
+                }
+            }
+        }
+
+        if (bestTarget < 0 || bestSource < 0) return false;
+        mergeStacks(player, container, bestSource, bestTarget);
+        return true;
+    }
+
+    private void mergeStacks(EntityPlayerSP player, Container container, int sourceSlot, int targetSlot) {
         minecraft.playerController.windowClick(container.windowId, sourceSlot, 0, 0, player);
         minecraft.playerController.windowClick(container.windowId, targetSlot, 0, 0, player);
         minecraft.playerController.windowClick(container.windowId, sourceSlot, 0, 0, player);
