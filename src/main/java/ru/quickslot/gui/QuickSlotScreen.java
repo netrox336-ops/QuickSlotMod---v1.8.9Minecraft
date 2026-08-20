@@ -17,7 +17,7 @@ public final class QuickSlotScreen extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int x = width / 2 - 100;
-        int y = Math.max(42, height / 2 - 92);
+        int y = Math.max(30, height / 2 - 104);
 
         buttonList.add(new GuiButton(1, x, y, 200, 20, organizerText()));
         buttonList.add(new GuiButton(2, x, y + 24, 200, 20, resourcesText()));
@@ -28,7 +28,8 @@ public final class QuickSlotScreen extends GuiScreen {
         buttonList.add(new GuiButton(5, x + 102, y + 102, 98, 20, "HUD"));
         buttonList.add(new GuiButton(7, x, y + 126, 98, 20, "Профили"));
         buttonList.add(new GuiButton(8, x + 102, y + 126, 98, 20, "Пополнение"));
-        buttonList.add(new GuiButton(6, x, y + 156, 200, 20, "Готово"));
+        buttonList.add(new GuiButton(11, x, y + 150, 200, 20, "Инвентарь"));
+        buttonList.add(new GuiButton(6, x, y + 180, 200, 20, "Готово"));
     }
 
     @Override
@@ -69,6 +70,9 @@ public final class QuickSlotScreen extends GuiScreen {
                 config.setStatusHudEnabled(!config.isStatusHudEnabled());
                 button.displayString = statusHudText();
                 break;
+            case 11:
+                mc.displayGuiScreen(new InventorySettingsScreen(this, config));
+                break;
             default:
                 break;
         }
@@ -77,9 +81,9 @@ public final class QuickSlotScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        int y = Math.max(42, height / 2 - 92);
-        drawCenteredString(fontRendererObj, "QuickSlot", width / 2, y - 30, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Профиль: " + config.getActiveProfile().getDisplayName(), width / 2, y - 16, 0xAAAAAA);
+        int y = Math.max(30, height / 2 - 104);
+        drawCenteredString(fontRendererObj, "QuickSlot", width / 2, y - 26, 0xFFFFFF);
+        drawCenteredString(fontRendererObj, "Профиль: " + config.getActiveProfile().getDisplayName(), width / 2, y - 12, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
