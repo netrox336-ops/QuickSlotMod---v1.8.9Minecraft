@@ -1,0 +1,15 @@
+[
+  {
+    "modid": "quickslot",
+    "name": "QuickSlot",
+    "description": "Клиентский помощник для управления хотбаром и ресурсами в BedWars.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "authorList": ["Netrox"],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
