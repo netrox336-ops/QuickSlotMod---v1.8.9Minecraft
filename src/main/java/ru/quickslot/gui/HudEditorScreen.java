@@ -50,14 +50,14 @@ public final class HudEditorScreen extends GuiScreen {
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
         drawCenteredString(fontRendererObj, "Настройка HUD", width / 2, 18, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Перетащи счётчик мышкой. Кнопки снизу меняют масштаб.", width / 2, 32, 0xAAAAAA);
+        drawCenteredString(fontRendererObj, "Перетащи HUD мышкой. Кнопки снизу меняют масштаб.", width / 2, 32, 0xAAAAAA);
 
         int previewWidth = Math.max(1, (int) (ResourceHud.BASE_WIDTH * config.getHudScale()));
         int previewHeight = Math.max(1, (int) (ResourceHud.BASE_HEIGHT * config.getHudScale()));
         int x = config.getHudX();
         int y = config.getHudY();
         drawRect(x - 3, y - 3, x + previewWidth + 3, y + previewHeight + 3, 0x45000000);
-        ResourceHud.render(mc, x, y, config.getHudScale());
+        ResourceHud.render(mc, config, x, y, config.getHudScale());
 
         drawCenteredString(fontRendererObj, String.format("Масштаб: %.1fx", config.getHudScale()), width / 2, height - 42, 0xDDDDDD);
         super.drawScreen(mouseX, mouseY, partialTicks);

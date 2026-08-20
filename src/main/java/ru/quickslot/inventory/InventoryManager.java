@@ -66,7 +66,9 @@ public final class InventoryManager {
     }
 
     private boolean moveOneResourceOutOfHotbar(EntityPlayerSP player, Container container) {
+        int protectedSlotNumber = protectedHotbarSlot(player);
         for (int slotNumber = HOTBAR_FIRST; slotNumber <= HOTBAR_LAST; slotNumber++) {
+            if (slotNumber == protectedSlotNumber) continue;
             Slot slot = container.getSlot(slotNumber);
             if (slot.getHasStack() && ItemClassifier.isResource(slot.getStack()) && canMoveToMain(container, slot.getStack())) {
                 minecraft.playerController.windowClick(container.windowId, slotNumber, 0, 1, player);
@@ -77,11 +79,15 @@ public final class InventoryManager {
     }
 
     private boolean organizeOneSlot(EntityPlayerSP player, Container container) {
+        int protectedSlotNumber = protectedHotbarSlot(player);
+
         for (int hotbarIndex = 0; hotbarIndex < 9; hotbarIndex++) {
             ItemCategory rule = config.getRule(hotbarIndex);
             if (rule == ItemCategory.IGNORE) continue;
 
             int targetSlotNumber = HOTBAR_FIRST + hotbarIndex;
+            if (targetSlotNumber == protectedSlotNumber) continue;
+
             Slot target = container.getSlot(targetSlotNumber);
             ItemStack current = target.getStack();
 
@@ -95,7 +101,7 @@ public final class InventoryManager {
 
             if (ItemClassifier.matches(current, rule)) {
                 if (isUpgradeable(rule)) {
-                    int betterSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex);
+                    int betterSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
                     if (betterSource >= 0) {
                         ItemStack better = container.getSlot(betterSource).getStack();
                         if (ItemClassifier.priority(better, rule) > ItemClassifier.priority(current, rule)) {
@@ -113,7 +119,7 @@ public final class InventoryManager {
                 continue;
             }
 
-            int bestSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex);
+            int bestSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
             if (bestSource < 0) continue;
 
             minecraft.playerController.windowClick(container.windowId, bestSource, hotbarIndex, 2, player);
@@ -145,13 +151,13 @@ public final class InventoryManager {
                 || category == ItemCategory.AXE;
     }
 
-    private int findBestSource(Container container, ItemCategory category, int targetSlotNumber, int targetHotbarIndex) {
+    private int findBestSource(Container container, ItemCategory category, int targetSlotNumber, int targetHotbarIndex, int protectedSlotNumber) {
         int bestSlot = -1;
         int bestPriority = Integer.MIN_VALUE;
         ItemStack preferred = category == ItemCategory.BLOCKS ? lastPreferredStacks[targetHotbarIndex] : null;
 
         for (int slotNumber = MAIN_FIRST; slotNumber <= HOTBAR_LAST; slotNumber++) {
-            if (slotNumber == targetSlotNumber) continue;
+            if (slotNumber == targetSlotNumber || slotNumber == protectedSlotNumber) continue;
             ItemStack stack = container.getSlot(slotNumber).getStack();
             if (!ItemClassifier.matches(stack, category)) continue;
 
@@ -191,6 +197,11 @@ public final class InventoryManager {
         if (first.getItem() != second.getItem() || first.getItemDamage() != second.getItemDamage()) return false;
         if (first.hasTagCompound() != second.hasTagCompound()) return false;
         return !first.hasTagCompound() || first.getTagCompound().equals(second.getTagCompound());
+    }
+
+    private int protectedHotbarSlot(EntityPlayerSP player) {
+        if (!config.isProtectSelectedSlot()) return -1;
+        return HOTBAR_FIRST + player.inventory.currentItem;
     }
 
     private boolean canMoveToMain(Container container, ItemStack resource) {
