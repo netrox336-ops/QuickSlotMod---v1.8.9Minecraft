@@ -16,11 +16,11 @@ jobs:
       - name: Получить исходный код
         uses: actions/checkout@v4
 
-      - name: Установить Java 8
+      - name: Установить Java 17 для сборки
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "8"
+          java-version: "17"
 
       - name: Подготовить Gradle
         uses: gradle/actions/setup-gradle@v4
