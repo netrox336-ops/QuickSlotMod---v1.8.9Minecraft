@@ -17,14 +17,16 @@ public final class QuickSlotScreen extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int x = width / 2 - 100;
-        int y = height / 2 - 70;
+        int y = height / 2 - 88;
 
         buttonList.add(new GuiButton(1, x, y, 200, 20, organizerText()));
         buttonList.add(new GuiButton(2, x, y + 24, 200, 20, resourcesText()));
         buttonList.add(new GuiButton(3, x, y + 48, 200, 20, hudText()));
         buttonList.add(new GuiButton(4, x, y + 78, 98, 20, "Хотбар"));
         buttonList.add(new GuiButton(5, x + 102, y + 78, 98, 20, "HUD"));
-        buttonList.add(new GuiButton(6, x, y + 108, 200, 20, "Готово"));
+        buttonList.add(new GuiButton(7, x, y + 102, 98, 20, "Профили"));
+        buttonList.add(new GuiButton(8, x + 102, y + 102, 98, 20, "Пополнение"));
+        buttonList.add(new GuiButton(6, x, y + 132, 200, 20, "Готово"));
     }
 
     @Override
@@ -51,6 +53,12 @@ public final class QuickSlotScreen extends GuiScreen {
             case 6:
                 mc.displayGuiScreen(null);
                 break;
+            case 7:
+                mc.displayGuiScreen(new ProfileScreen(this, config));
+                break;
+            case 8:
+                mc.displayGuiScreen(new RefillSettingsScreen(this, config));
+                break;
             default:
                 break;
         }
@@ -59,8 +67,8 @@ public final class QuickSlotScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        drawCenteredString(fontRendererObj, "QuickSlot", width / 2, height / 2 - 104, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Настройки мода", width / 2, height / 2 - 90, 0xAAAAAA);
+        drawCenteredString(fontRendererObj, "QuickSlot", width / 2, height / 2 - 122, 0xFFFFFF);
+        drawCenteredString(fontRendererObj, "Профиль: " + config.getActiveProfile().getDisplayName(), width / 2, height / 2 - 108, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
