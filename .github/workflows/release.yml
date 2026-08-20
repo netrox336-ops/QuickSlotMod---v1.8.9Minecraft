@@ -1,0 +1,53 @@
+name: Публикация релиза
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/release.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Получить исходный код
+        uses: actions/checkout@v4
+
+      - name: Установить Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+
+      - name: Подготовить Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.3"
+
+      - name: Собрать QuickSlot
+        run: gradle build --stacktrace
+
+      - name: Подготовить файл релиза
+        run: |
+          mkdir -p release
+          cp build/libs/*.jar release/QuickSlot-v0.1.0-Minecraft-1.8.9.jar
+
+      - name: Опубликовать v0.1.0
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          name: QuickSlot v0.1.0
+          body: |
+            Первая версия QuickSlot для Minecraft 1.8.9 Forge.
+
+            Что добавлено:
+            - HUD с количеством железа, золота, алмазов и изумрудов;
+            - автоматическая раскладка хотбара;
+            - автоматическое пополнение назначенных слотов;
+            - перенос ресурсов из хотбара в основной инвентарь;
+            - настройка раскладки, HUD и основных параметров через конфиг.
+          files: release/QuickSlot-v0.1.0-Minecraft-1.8.9.jar
+          fail_on_unmatched_files: true
