@@ -6,7 +6,7 @@ import ru.quickslot.item.ItemCategory;
 import java.io.File;
 
 public final class QuickSlotConfig {
-    private static final ItemCategory[] DEFAULT_HOTBAR = {
+    private static final ItemCategory[] NORMAL_HOTBAR = {
             ItemCategory.SWORD,
             ItemCategory.BLOCKS,
             ItemCategory.EMPTY,
@@ -18,8 +18,32 @@ public final class QuickSlotConfig {
             ItemCategory.IGNORE
     };
 
+    private static final ItemCategory[] RUSH_HOTBAR = {
+            ItemCategory.SWORD,
+            ItemCategory.BLOCKS,
+            ItemCategory.TNT,
+            ItemCategory.GOLDEN_APPLE,
+            ItemCategory.SHEARS,
+            ItemCategory.PICKAXE,
+            ItemCategory.AXE,
+            ItemCategory.FIREBALL,
+            ItemCategory.ENDER_PEARL
+    };
+
+    private static final ItemCategory[] BRIDGE_HOTBAR = {
+            ItemCategory.SWORD,
+            ItemCategory.BLOCKS,
+            ItemCategory.BLOCKS,
+            ItemCategory.GOLDEN_APPLE,
+            ItemCategory.SHEARS,
+            ItemCategory.PICKAXE,
+            ItemCategory.AXE,
+            ItemCategory.FIREBALL,
+            ItemCategory.ENDER_PEARL
+    };
+
     private final Configuration configuration;
-    private final ItemCategory[] hotbarRules = new ItemCategory[9];
+    private final ItemCategory[][] profileRules = new ItemCategory[ProfileType.values().length][9];
 
     private boolean enabled;
     private boolean resourceHudEnabled;
@@ -27,6 +51,9 @@ public final class QuickSlotConfig {
     private int hudX;
     private int hudY;
     private float hudScale;
+    private ProfileType activeProfile;
+    private RefillMode refillMode;
+    private int refillThreshold;
 
     public QuickSlotConfig(File file) {
         this.configuration = new Configuration(file);
@@ -41,13 +68,38 @@ public final class QuickSlotConfig {
         hudY = configuration.getInt("Y", "HUD", 8, 0, 10000, "Положение HUD по вертикали.");
         hudScale = (float) configuration.get("HUD", "Масштаб", 1.0D, "Масштаб HUD.", 0.5D, 3.0D).getDouble();
 
-        for (int i = 0; i < hotbarRules.length; i++) {
-            String key = "Слот " + (i + 1);
-            String value = configuration.getString(key, "Хотбар", DEFAULT_HOTBAR[i].name(), "Назначение слота: " + ItemCategory.availableValues());
-            hotbarRules[i] = ItemCategory.fromConfig(value, DEFAULT_HOTBAR[i]);
+        activeProfile = ProfileType.fromConfig(
+                configuration.getString("Активный профиль", "Профили", ProfileType.NORMAL.name(), "Текущий профиль хотбара."),
+                ProfileType.NORMAL
+        );
+        refillMode = RefillMode.fromConfig(
+                configuration.getString("Режим", "Пополнение", RefillMode.EMPTY_ONLY.name(), "Режим автоматического пополнения слотов."),
+                RefillMode.EMPTY_ONLY
+        );
+        refillThreshold = configuration.getInt("Порог", "Пополнение", 16, 1, 64, "Когда количество предметов ниже этого значения, слот будет пополнен.");
+
+        loadProfiles();
+        if (configuration.hasChanged()) configuration.save();
+    }
+
+    private void loadProfiles() {
+        for (int i = 0; i < 9; i++) {
+            ItemCategory fallback = NORMAL_HOTBAR[i];
+            String legacy = configuration.getString("Слот " + (i + 1), "Хотбар", fallback.name(), "Старая раскладка QuickSlot.");
+            ItemCategory legacyRule = ItemCategory.fromConfig(legacy, fallback);
+            String value = configuration.getString("Слот " + (i + 1), ProfileType.NORMAL.getConfigCategory(), legacyRule.name(), "Назначение слота.");
+            profileRules[ProfileType.NORMAL.ordinal()][i] = ItemCategory.fromConfig(value, legacyRule);
         }
 
-        if (configuration.hasChanged()) configuration.save();
+        loadProfile(ProfileType.RUSH, RUSH_HOTBAR);
+        loadProfile(ProfileType.BRIDGE, BRIDGE_HOTBAR);
+    }
+
+    private void loadProfile(ProfileType profile, ItemCategory[] defaults) {
+        for (int i = 0; i < 9; i++) {
+            String value = configuration.getString("Слот " + (i + 1), profile.getConfigCategory(), defaults[i].name(), "Назначение слота.");
+            profileRules[profile.ordinal()][i] = ItemCategory.fromConfig(value, defaults[i]);
+        }
     }
 
     public void save() {
@@ -57,9 +109,21 @@ public final class QuickSlotConfig {
         configuration.get("HUD", "X", 8).set(hudX);
         configuration.get("HUD", "Y", 8).set(hudY);
         configuration.get("HUD", "Масштаб", 1.0D).set((double) hudScale);
+        configuration.get("Профили", "Активный профиль", ProfileType.NORMAL.name()).set(activeProfile.name());
+        configuration.get("Пополнение", "Режим", RefillMode.EMPTY_ONLY.name()).set(refillMode.name());
+        configuration.get("Пополнение", "Порог", 16).set(refillThreshold);
 
-        for (int i = 0; i < hotbarRules.length; i++) {
-            configuration.get("Хотбар", "Слот " + (i + 1), DEFAULT_HOTBAR[i].name()).set(hotbarRules[i].name());
+        for (ProfileType profile : ProfileType.values()) {
+            ItemCategory[] defaults = defaultsFor(profile);
+            for (int i = 0; i < 9; i++) {
+                configuration.get(profile.getConfigCategory(), "Слот " + (i + 1), defaults[i].name())
+                        .set(profileRules[profile.ordinal()][i].name());
+            }
+        }
+
+        for (int i = 0; i < 9; i++) {
+            configuration.get("Хотбар", "Слот " + (i + 1), NORMAL_HOTBAR[i].name())
+                    .set(profileRules[ProfileType.NORMAL.ordinal()][i].name());
         }
         configuration.save();
     }
@@ -70,7 +134,18 @@ public final class QuickSlotConfig {
     public int getHudX() { return hudX; }
     public int getHudY() { return hudY; }
     public float getHudScale() { return hudScale; }
-    public ItemCategory getRule(int hotbarIndex) { return hotbarRules[hotbarIndex]; }
+    public ProfileType getActiveProfile() { return activeProfile; }
+    public RefillMode getRefillMode() { return refillMode; }
+    public int getRefillThreshold() { return refillThreshold; }
+
+    public ItemCategory getRule(int hotbarIndex) {
+        return getRule(activeProfile, hotbarIndex);
+    }
+
+    public ItemCategory getRule(ProfileType profile, int hotbarIndex) {
+        if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return ItemCategory.IGNORE;
+        return profileRules[profile.ordinal()][hotbarIndex];
+    }
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
@@ -87,14 +162,32 @@ public final class QuickSlotConfig {
         save();
     }
 
+    public void setActiveProfile(ProfileType profile) {
+        if (profile == null) return;
+        activeProfile = profile;
+        save();
+    }
+
+    public void setRefillMode(RefillMode mode) {
+        if (mode == null) return;
+        refillMode = mode;
+        save();
+    }
+
+    public void setRefillThreshold(int threshold) {
+        refillThreshold = Math.max(1, Math.min(64, threshold));
+        save();
+    }
+
     public void setRule(int hotbarIndex, ItemCategory category) {
-        if (hotbarIndex < 0 || hotbarIndex >= hotbarRules.length || category == null) return;
-        hotbarRules[hotbarIndex] = category;
+        if (hotbarIndex < 0 || hotbarIndex >= 9 || category == null) return;
+        profileRules[activeProfile.ordinal()][hotbarIndex] = category;
         save();
     }
 
     public void resetHotbar() {
-        System.arraycopy(DEFAULT_HOTBAR, 0, hotbarRules, 0, hotbarRules.length);
+        ItemCategory[] defaults = defaultsFor(activeProfile);
+        System.arraycopy(defaults, 0, profileRules[activeProfile.ordinal()], 0, 9);
         save();
     }
 
@@ -112,5 +205,14 @@ public final class QuickSlotConfig {
         hudY = 8;
         hudScale = 1.0F;
         save();
+    }
+
+    private ItemCategory[] defaultsFor(ProfileType profile) {
+        switch (profile) {
+            case RUSH: return RUSH_HOTBAR;
+            case BRIDGE: return BRIDGE_HOTBAR;
+            case NORMAL:
+            default: return NORMAL_HOTBAR;
+        }
     }
 }
