@@ -47,7 +47,9 @@ public final class QuickSlotConfig {
 
     private boolean enabled;
     private boolean resourceHudEnabled;
+    private boolean statusHudEnabled;
     private boolean removeResourcesFromHotbar;
+    private boolean protectSelectedSlot;
     private int hudX;
     private int hudY;
     private float hudScale;
@@ -62,8 +64,10 @@ public final class QuickSlotConfig {
     public void load() {
         enabled = configuration.getBoolean("Включен", "Основное", true, "Включает автоматическую работу QuickSlot.");
         removeResourcesFromHotbar = configuration.getBoolean("Убирать ресурсы из хотбара", "Основное", true, "Железо, золото, алмазы и изумруды будут переноситься в основной инвентарь.");
+        protectSelectedSlot = configuration.getBoolean("Защищать выбранный слот", "Основное", true, "QuickSlot не будет переставлять предмет в выбранном игроком слоте хотбара.");
 
         resourceHudEnabled = configuration.getBoolean("Показывать HUD ресурсов", "HUD", true, "Показывает количество ресурсов во всём инвентаре.");
+        statusHudEnabled = configuration.getBoolean("Показывать состояние QuickSlot", "HUD", true, "Показывает активный профиль и состояние автосортировки.");
         hudX = configuration.getInt("X", "HUD", 8, 0, 10000, "Положение HUD по горизонтали.");
         hudY = configuration.getInt("Y", "HUD", 8, 0, 10000, "Положение HUD по вертикали.");
         hudScale = (float) configuration.get("HUD", "Масштаб", 1.0D, "Масштаб HUD.", 0.5D, 3.0D).getDouble();
@@ -105,7 +109,9 @@ public final class QuickSlotConfig {
     public void save() {
         configuration.get("Основное", "Включен", true).set(enabled);
         configuration.get("Основное", "Убирать ресурсы из хотбара", true).set(removeResourcesFromHotbar);
+        configuration.get("Основное", "Защищать выбранный слот", true).set(protectSelectedSlot);
         configuration.get("HUD", "Показывать HUD ресурсов", true).set(resourceHudEnabled);
+        configuration.get("HUD", "Показывать состояние QuickSlot", true).set(statusHudEnabled);
         configuration.get("HUD", "X", 8).set(hudX);
         configuration.get("HUD", "Y", 8).set(hudY);
         configuration.get("HUD", "Масштаб", 1.0D).set((double) hudScale);
@@ -130,7 +136,9 @@ public final class QuickSlotConfig {
 
     public boolean isEnabled() { return enabled; }
     public boolean isResourceHudEnabled() { return resourceHudEnabled; }
+    public boolean isStatusHudEnabled() { return statusHudEnabled; }
     public boolean isRemoveResourcesFromHotbar() { return removeResourcesFromHotbar; }
+    public boolean isProtectSelectedSlot() { return protectSelectedSlot; }
     public int getHudX() { return hudX; }
     public int getHudY() { return hudY; }
     public float getHudScale() { return hudScale; }
@@ -157,8 +165,18 @@ public final class QuickSlotConfig {
         save();
     }
 
+    public void setStatusHudEnabled(boolean statusHudEnabled) {
+        this.statusHudEnabled = statusHudEnabled;
+        save();
+    }
+
     public void setRemoveResourcesFromHotbar(boolean removeResourcesFromHotbar) {
         this.removeResourcesFromHotbar = removeResourcesFromHotbar;
+        save();
+    }
+
+    public void setProtectSelectedSlot(boolean protectSelectedSlot) {
+        this.protectSelectedSlot = protectSelectedSlot;
         save();
     }
 
