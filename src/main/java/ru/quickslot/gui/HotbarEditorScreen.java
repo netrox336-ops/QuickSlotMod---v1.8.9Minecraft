@@ -24,7 +24,7 @@ public final class HotbarEditorScreen extends GuiScreen {
         int gap = 6;
         int totalWidth = buttonWidth * 3 + gap * 2;
         int startX = (width - totalWidth) / 2;
-        int startY = Math.max(54, height / 2 - 62);
+        int startY = Math.max(62, height / 2 - 58);
 
         for (int i = 0; i < 9; i++) {
             int column = i % 3;
@@ -68,8 +68,9 @@ public final class HotbarEditorScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        drawCenteredString(fontRendererObj, "Раскладка хотбара", width / 2, 24, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Нажимай на слот, чтобы менять его назначение", width / 2, 38, 0xAAAAAA);
+        drawCenteredString(fontRendererObj, "Раскладка хотбара", width / 2, 22, 0xFFFFFF);
+        drawCenteredString(fontRendererObj, "Профиль: " + config.getActiveProfile().getDisplayName(), width / 2, 36, 0xAAAAAA);
+        drawCenteredString(fontRendererObj, "Нажимай на слот, чтобы менять его назначение", width / 2, 50, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
