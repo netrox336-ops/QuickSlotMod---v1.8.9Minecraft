@@ -44,12 +44,15 @@ public final class QuickSlotConfig {
 
     private final Configuration configuration;
     private final ItemCategory[][] profileRules = new ItemCategory[ProfileType.values().length][9];
+    private final boolean[][] profileRefillEnabled = new boolean[ProfileType.values().length][9];
 
     private boolean enabled;
     private boolean resourceHudEnabled;
     private boolean statusHudEnabled;
     private boolean removeResourcesFromHotbar;
     private boolean protectSelectedSlot;
+    private boolean stackConsolidationEnabled;
+    private boolean manualGraceEnabled;
     private int hudX;
     private int hudY;
     private float hudScale;
@@ -65,6 +68,9 @@ public final class QuickSlotConfig {
         enabled = configuration.getBoolean("Включен", "Основное", true, "Включает автоматическую работу QuickSlot.");
         removeResourcesFromHotbar = configuration.getBoolean("Убирать ресурсы из хотбара", "Основное", true, "Железо, золото, алмазы и изумруды будут переноситься в основной инвентарь.");
         protectSelectedSlot = configuration.getBoolean("Защищать выбранный слот", "Основное", true, "QuickSlot не будет переставлять предмет в выбранном игроком слоте хотбара.");
+
+        stackConsolidationEnabled = configuration.getBoolean("Объединять одинаковые стаки", "Инвентарь", false, "Объединяет одинаковые предметы в основном инвентаре.");
+        manualGraceEnabled = configuration.getBoolean("Пауза после ручной работы", "Инвентарь", true, "После закрытия инвентаря QuickSlot короткое время не вмешивается.");
 
         resourceHudEnabled = configuration.getBoolean("Показывать HUD ресурсов", "HUD", true, "Показывает количество ресурсов во всём инвентаре.");
         statusHudEnabled = configuration.getBoolean("Показывать состояние QuickSlot", "HUD", true, "Показывает активный профиль и состояние автосортировки.");
@@ -83,6 +89,7 @@ public final class QuickSlotConfig {
         refillThreshold = configuration.getInt("Порог", "Пополнение", 16, 1, 64, "Когда количество предметов ниже этого значения, слот будет пополнен.");
 
         loadProfiles();
+        loadRefillSettings();
         if (configuration.hasChanged()) configuration.save();
     }
 
@@ -106,10 +113,26 @@ public final class QuickSlotConfig {
         }
     }
 
+    private void loadRefillSettings() {
+        for (ProfileType profile : ProfileType.values()) {
+            String category = refillCategory(profile);
+            for (int i = 0; i < 9; i++) {
+                profileRefillEnabled[profile.ordinal()][i] = configuration.getBoolean(
+                        "Слот " + (i + 1),
+                        category,
+                        true,
+                        "Разрешает QuickSlot автоматически заполнять и дозаполнять этот слот."
+                );
+            }
+        }
+    }
+
     public void save() {
         configuration.get("Основное", "Включен", true).set(enabled);
         configuration.get("Основное", "Убирать ресурсы из хотбара", true).set(removeResourcesFromHotbar);
         configuration.get("Основное", "Защищать выбранный слот", true).set(protectSelectedSlot);
+        configuration.get("Инвентарь", "Объединять одинаковые стаки", false).set(stackConsolidationEnabled);
+        configuration.get("Инвентарь", "Пауза после ручной работы", true).set(manualGraceEnabled);
         configuration.get("HUD", "Показывать HUD ресурсов", true).set(resourceHudEnabled);
         configuration.get("HUD", "Показывать состояние QuickSlot", true).set(statusHudEnabled);
         configuration.get("HUD", "X", 8).set(hudX);
@@ -124,6 +147,8 @@ public final class QuickSlotConfig {
             for (int i = 0; i < 9; i++) {
                 configuration.get(profile.getConfigCategory(), "Слот " + (i + 1), defaults[i].name())
                         .set(profileRules[profile.ordinal()][i].name());
+                configuration.get(refillCategory(profile), "Слот " + (i + 1), true)
+                        .set(profileRefillEnabled[profile.ordinal()][i]);
             }
         }
 
@@ -139,6 +164,8 @@ public final class QuickSlotConfig {
     public boolean isStatusHudEnabled() { return statusHudEnabled; }
     public boolean isRemoveResourcesFromHotbar() { return removeResourcesFromHotbar; }
     public boolean isProtectSelectedSlot() { return protectSelectedSlot; }
+    public boolean isStackConsolidationEnabled() { return stackConsolidationEnabled; }
+    public boolean isManualGraceEnabled() { return manualGraceEnabled; }
     public int getHudX() { return hudX; }
     public int getHudY() { return hudY; }
     public float getHudScale() { return hudScale; }
@@ -153,6 +180,15 @@ public final class QuickSlotConfig {
     public ItemCategory getRule(ProfileType profile, int hotbarIndex) {
         if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return ItemCategory.IGNORE;
         return profileRules[profile.ordinal()][hotbarIndex];
+    }
+
+    public boolean isRefillEnabled(int hotbarIndex) {
+        return isRefillEnabled(activeProfile, hotbarIndex);
+    }
+
+    public boolean isRefillEnabled(ProfileType profile, int hotbarIndex) {
+        if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return false;
+        return profileRefillEnabled[profile.ordinal()][hotbarIndex];
     }
 
     public void setEnabled(boolean enabled) {
@@ -180,6 +216,16 @@ public final class QuickSlotConfig {
         save();
     }
 
+    public void setStackConsolidationEnabled(boolean stackConsolidationEnabled) {
+        this.stackConsolidationEnabled = stackConsolidationEnabled;
+        save();
+    }
+
+    public void setManualGraceEnabled(boolean manualGraceEnabled) {
+        this.manualGraceEnabled = manualGraceEnabled;
+        save();
+    }
+
     public void setActiveProfile(ProfileType profile) {
         if (profile == null) return;
         activeProfile = profile;
@@ -194,6 +240,12 @@ public final class QuickSlotConfig {
 
     public void setRefillThreshold(int threshold) {
         refillThreshold = Math.max(1, Math.min(64, threshold));
+        save();
+    }
+
+    public void setRefillEnabled(int hotbarIndex, boolean enabled) {
+        if (hotbarIndex < 0 || hotbarIndex >= 9) return;
+        profileRefillEnabled[activeProfile.ordinal()][hotbarIndex] = enabled;
         save();
     }
 
@@ -223,6 +275,10 @@ public final class QuickSlotConfig {
         hudY = 8;
         hudScale = 1.0F;
         save();
+    }
+
+    private String refillCategory(ProfileType profile) {
+        return "Пополнение." + profile.getDisplayName();
     }
 
     private ItemCategory[] defaultsFor(ProfileType profile) {
