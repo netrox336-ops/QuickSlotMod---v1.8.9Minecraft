@@ -50,10 +50,9 @@ public final class InventoryManager {
     }
 
     private boolean moveOneResourceOutOfHotbar(EntityPlayerSP player, Container container) {
-        if (!hasFreeMainInventorySpace(container)) return false;
         for (int slotNumber = HOTBAR_FIRST; slotNumber <= HOTBAR_LAST; slotNumber++) {
             Slot slot = container.getSlot(slotNumber);
-            if (slot.getHasStack() && ItemClassifier.isResource(slot.getStack())) {
+            if (slot.getHasStack() && ItemClassifier.isResource(slot.getStack()) && canMoveToMain(container, slot.getStack())) {
                 minecraft.playerController.windowClick(container.windowId, slotNumber, 0, 1, player);
                 return true;
             }
@@ -78,9 +77,7 @@ public final class InventoryManager {
                 continue;
             }
 
-            if (ItemClassifier.matches(current, rule) && !isUpgradeable(rule)) {
-                continue;
-            }
+            if (ItemClassifier.matches(current, rule) && !isUpgradeable(rule)) continue;
 
             int bestSource = findBestSource(container, rule, targetSlotNumber);
             if (bestSource < 0) continue;
@@ -106,10 +103,18 @@ public final class InventoryManager {
     private int findBestSource(Container container, ItemCategory category, int targetSlotNumber) {
         int bestSlot = -1;
         int bestPriority = Integer.MIN_VALUE;
+
         for (int slotNumber = MAIN_FIRST; slotNumber <= HOTBAR_LAST; slotNumber++) {
             if (slotNumber == targetSlotNumber) continue;
             ItemStack stack = container.getSlot(slotNumber).getStack();
             if (!ItemClassifier.matches(stack, category)) continue;
+
+            if (slotNumber >= HOTBAR_FIRST) {
+                int sourceHotbarIndex = slotNumber - HOTBAR_FIRST;
+                ItemCategory sourceRule = config.getRule(sourceHotbarIndex);
+                if (sourceRule == category) continue;
+            }
+
             int priority = ItemClassifier.priority(stack, category);
             if (priority > bestPriority) {
                 bestPriority = priority;
@@ -117,6 +122,17 @@ public final class InventoryManager {
             }
         }
         return bestSlot;
+    }
+
+    private boolean canMoveToMain(Container container, ItemStack resource) {
+        for (int slotNumber = MAIN_FIRST; slotNumber <= MAIN_LAST; slotNumber++) {
+            ItemStack stack = container.getSlot(slotNumber).getStack();
+            if (stack == null) return true;
+            if (stack.getItem() == resource.getItem()
+                    && stack.getItemDamage() == resource.getItemDamage()
+                    && stack.stackSize < stack.getMaxStackSize()) return true;
+        }
+        return false;
     }
 
     private boolean hasFreeMainInventorySpace(Container container) {

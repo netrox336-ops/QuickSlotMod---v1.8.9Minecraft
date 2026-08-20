@@ -1,5 +1,6 @@
 package ru.quickslot.item;
 
+import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemAxe;
@@ -16,11 +17,21 @@ public final class ItemClassifier {
         Item item = stack.getItem();
         switch (category) {
             case SWORD: return item instanceof ItemSword;
-            case BLOCKS: return item instanceof ItemBlock;
+            case BLOCKS:
+                return item instanceof ItemBlock
+                        && item != Item.getItemFromBlock(Blocks.tnt)
+                        && item != Item.getItemFromBlock(Blocks.ladder);
             case GOLDEN_APPLE: return item == Items.golden_apple;
             case SHEARS: return item == Items.shears;
             case PICKAXE: return item instanceof ItemPickaxe;
             case AXE: return item instanceof ItemAxe;
+            case BOW: return item == Items.bow;
+            case ARROWS: return item == Items.arrow;
+            case TNT: return item == Item.getItemFromBlock(Blocks.tnt);
+            case FIREBALL: return item == Items.fire_charge;
+            case ENDER_PEARL: return item == Items.ender_pearl;
+            case LADDER: return item == Item.getItemFromBlock(Blocks.ladder);
+            case WATER_BUCKET: return item == Items.water_bucket;
             case EMPTY: return false;
             case IGNORE: return true;
             default: return false;

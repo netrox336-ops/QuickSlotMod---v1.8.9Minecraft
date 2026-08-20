@@ -23,11 +23,15 @@ jobs:
         with:
           gradle-version: "8.3"
 
+      - name: Узнать версию
+        id: version
+        run: echo "version=$(grep '^modVersion=' gradle.properties | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Собрать мод
         run: gradle build --stacktrace
 
       - name: Сохранить jar
         uses: actions/upload-artifact@v4
         with:
-          name: QuickSlot-0.1.0
+          name: QuickSlot-${{ steps.version.outputs.version }}
           path: build/libs/*.jar

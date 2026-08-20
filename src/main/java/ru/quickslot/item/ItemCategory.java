@@ -3,14 +3,36 @@ package ru.quickslot.item;
 import java.util.Locale;
 
 public enum ItemCategory {
-    SWORD,
-    BLOCKS,
-    GOLDEN_APPLE,
-    SHEARS,
-    PICKAXE,
-    AXE,
-    EMPTY,
-    IGNORE;
+    SWORD("Меч"),
+    BLOCKS("Блоки"),
+    GOLDEN_APPLE("Золотые яблоки"),
+    SHEARS("Ножницы"),
+    PICKAXE("Кирка"),
+    AXE("Топор"),
+    BOW("Лук"),
+    ARROWS("Стрелы"),
+    TNT("TNT"),
+    FIREBALL("Fireball"),
+    ENDER_PEARL("Эндер-жемчуг"),
+    LADDER("Лестницы"),
+    WATER_BUCKET("Вода"),
+    EMPTY("Пусто"),
+    IGNORE("Не трогать");
+
+    private final String displayName;
+
+    ItemCategory(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public ItemCategory next() {
+        ItemCategory[] all = values();
+        return all[(ordinal() + 1) % all.length];
+    }
 
     public static ItemCategory fromConfig(String value, ItemCategory fallback) {
         if (value == null) return fallback;

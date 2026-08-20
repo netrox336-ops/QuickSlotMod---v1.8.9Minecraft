@@ -1,11 +1,15 @@
 package ru.quickslot;
 
+import net.minecraft.client.settings.KeyBinding;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import org.lwjgl.input.Keyboard;
 import ru.quickslot.config.QuickSlotConfig;
+import ru.quickslot.gui.QuickSlotKeyHandler;
 import ru.quickslot.hud.ResourceHud;
 import ru.quickslot.inventory.InventoryManager;
 
@@ -19,7 +23,7 @@ import ru.quickslot.inventory.InventoryManager;
 public final class QuickSlot {
     public static final String MOD_ID = "quickslot";
     public static final String MOD_NAME = "QuickSlot";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
 
     @Mod.Instance(MOD_ID)
     public static QuickSlot instance;
@@ -34,7 +38,11 @@ public final class QuickSlot {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
+        KeyBinding settingsKey = new KeyBinding("Открыть QuickSlot", Keyboard.KEY_RSHIFT, "QuickSlot");
+        ClientRegistry.registerKeyBinding(settingsKey);
+
         FMLCommonHandler.instance().bus().register(new InventoryManager(config));
+        FMLCommonHandler.instance().bus().register(new QuickSlotKeyHandler(config, settingsKey));
         MinecraftForge.EVENT_BUS.register(new ResourceHud(config));
     }
 }
