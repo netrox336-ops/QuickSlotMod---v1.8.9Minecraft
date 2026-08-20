@@ -7,7 +7,6 @@ import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemPickaxe;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemSword;
-import net.minecraft.item.ItemTool;
 
 public final class ItemClassifier {
     private ItemClassifier() {}
@@ -37,12 +36,30 @@ public final class ItemClassifier {
     public static int priority(ItemStack stack, ItemCategory category) {
         if (stack == null) return Integer.MIN_VALUE;
         Item item = stack.getItem();
-        if (category == ItemCategory.SWORD && item instanceof ItemSword) {
-            return (int) (((ItemSword) item).getDamageVsEntity() * 100.0F);
+
+        if (category == ItemCategory.SWORD) {
+            if (item == Items.diamond_sword) return 400;
+            if (item == Items.iron_sword) return 300;
+            if (item == Items.stone_sword) return 200;
+            if (item == Items.wooden_sword) return 100;
         }
-        if ((category == ItemCategory.PICKAXE || category == ItemCategory.AXE) && item instanceof ItemTool) {
-            return (int) (((ItemTool) item).getToolMaterial().getEfficiencyOnProperMaterial() * 100.0F);
+
+        if (category == ItemCategory.PICKAXE) {
+            if (item == Items.diamond_pickaxe) return 500;
+            if (item == Items.iron_pickaxe) return 400;
+            if (item == Items.stone_pickaxe) return 300;
+            if (item == Items.golden_pickaxe) return 200;
+            if (item == Items.wooden_pickaxe) return 100;
         }
+
+        if (category == ItemCategory.AXE) {
+            if (item == Items.diamond_axe) return 500;
+            if (item == Items.iron_axe) return 400;
+            if (item == Items.stone_axe) return 300;
+            if (item == Items.golden_axe) return 200;
+            if (item == Items.wooden_axe) return 100;
+        }
+
         return stack.stackSize;
     }
 }

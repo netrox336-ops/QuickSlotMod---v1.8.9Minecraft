@@ -1,6 +1,7 @@
 package ru.quickslot;
 
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -33,7 +34,7 @@ public final class QuickSlot {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        MinecraftForge.EVENT_BUS.register(new InventoryManager(config));
+        FMLCommonHandler.instance().bus().register(new InventoryManager(config));
         MinecraftForge.EVENT_BUS.register(new ResourceHud(config));
     }
 }
