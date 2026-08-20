@@ -29,7 +29,8 @@ public final class InventoryManager {
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase != TickEvent.Phase.END || !config.isEnabled()) return;
+        if (event.phase != TickEvent.Phase.END) return;
+        if (!config.isEnabled() && !config.isRemoveResourcesFromHotbar()) return;
         if (cooldown > 0) {
             cooldown--;
             return;
@@ -46,7 +47,7 @@ public final class InventoryManager {
             cooldown = ACTION_COOLDOWN_TICKS;
             return;
         }
-        if (organizeOneSlot(player, container)) cooldown = ACTION_COOLDOWN_TICKS;
+        if (config.isEnabled() && organizeOneSlot(player, container)) cooldown = ACTION_COOLDOWN_TICKS;
     }
 
     private boolean moveOneResourceOutOfHotbar(EntityPlayerSP player, Container container) {
