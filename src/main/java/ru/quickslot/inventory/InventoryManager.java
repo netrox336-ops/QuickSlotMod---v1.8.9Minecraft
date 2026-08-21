@@ -139,6 +139,17 @@ public final class InventoryManager {
             }
 
             if (ItemClassifier.matches(current, rule)) {
+                if (rule == ItemCategory.BLOCKS && !config.isPreferSameBlock()) {
+                    int preferredSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
+                    if (preferredSource >= 0) {
+                        ItemStack preferredBlock = container.getSlot(preferredSource).getStack();
+                        if (blockRank(preferredBlock) < blockRank(current)) {
+                            minecraft.playerController.windowClick(container.windowId, preferredSource, hotbarIndex, 2, player);
+                            return true;
+                        }
+                    }
+                }
+
                 if (isUpgradeable(rule) && config.isAutoUpgrade(rule)) {
                     int betterSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
                     if (betterSource >= 0) {
@@ -247,12 +258,16 @@ public final class InventoryManager {
     private int sourcePriority(ItemStack stack, ItemCategory category, ItemStack preferred) {
         if (category != ItemCategory.BLOCKS) return ItemClassifier.priority(stack, category);
 
-        int rank = config.getBlockPriorityRank(BlockType.fromStack(stack));
+        int rank = blockRank(stack);
         int priority = (BlockType.values().length - rank) * 10000 + stack.stackSize;
         if (config.isPreferSameBlock() && preferred != null && sameStackKind(stack, preferred)) {
             priority += 1000000;
         }
         return priority;
+    }
+
+    private int blockRank(ItemStack stack) {
+        return config.getBlockPriorityRank(BlockType.fromStack(stack));
     }
 
     private int findMergeSource(Container container, ItemStack target) {
