@@ -53,9 +53,14 @@ public final class QuickSlotConfig {
             BlockType.OTHER
     };
 
+    private static final RefillMode DEFAULT_REFILL_MODE = RefillMode.EMPTY_ONLY;
+    private static final int DEFAULT_REFILL_THRESHOLD = 16;
+
     private final Configuration configuration;
     private final ItemCategory[][] profileRules = new ItemCategory[ProfileType.values().length][9];
     private final boolean[][] profileRefillEnabled = new boolean[ProfileType.values().length][9];
+    private final RefillMode[][] profileRefillModes = new RefillMode[ProfileType.values().length][9];
+    private final int[][] profileRefillThresholds = new int[ProfileType.values().length][9];
     private final BlockType[][] profileBlockPriority = new BlockType[ProfileType.values().length][BlockType.values().length];
     private final boolean[] profilePreferSameBlock = new boolean[ProfileType.values().length];
 
@@ -73,8 +78,6 @@ public final class QuickSlotConfig {
     private int hudY;
     private float hudScale;
     private ProfileType activeProfile;
-    private RefillMode refillMode;
-    private int refillThreshold;
 
     public QuickSlotConfig(File file) {
         this.configuration = new Configuration(file);
@@ -102,14 +105,22 @@ public final class QuickSlotConfig {
                 configuration.getString("Активный профиль", "Профили", ProfileType.NORMAL.name(), "Текущий профиль хотбара."),
                 ProfileType.NORMAL
         );
-        refillMode = RefillMode.fromConfig(
-                configuration.getString("Режим", "Пополнение", RefillMode.EMPTY_ONLY.name(), "Режим автоматического пополнения слотов."),
-                RefillMode.EMPTY_ONLY
+
+        RefillMode legacyRefillMode = RefillMode.fromConfig(
+                configuration.getString("Режим", "Пополнение", DEFAULT_REFILL_MODE.name(), "Старый общий режим Auto Refill."),
+                DEFAULT_REFILL_MODE
         );
-        refillThreshold = configuration.getInt("Порог", "Пополнение", 16, 1, 64, "Когда количество предметов ниже этого значения, слот будет пополнен.");
+        int legacyRefillThreshold = configuration.getInt(
+                "Порог",
+                "Пополнение",
+                DEFAULT_REFILL_THRESHOLD,
+                1,
+                64,
+                "Старый общий порог Auto Refill."
+        );
 
         loadProfiles();
-        loadRefillSettings();
+        loadRefillSettings(legacyRefillMode, legacyRefillThreshold);
         loadSmartSelection();
         if (configuration.hasChanged()) configuration.save();
     }
@@ -134,15 +145,32 @@ public final class QuickSlotConfig {
         }
     }
 
-    private void loadRefillSettings() {
+    private void loadRefillSettings(RefillMode legacyMode, int legacyThreshold) {
         for (ProfileType profile : ProfileType.values()) {
             String category = refillCategory(profile);
             for (int i = 0; i < 9; i++) {
+                int slotNumber = i + 1;
                 profileRefillEnabled[profile.ordinal()][i] = configuration.getBoolean(
-                        "Слот " + (i + 1),
+                        "Слот " + slotNumber,
                         category,
                         true,
                         "Разрешает QuickSlot автоматически заполнять и дозаполнять этот слот."
+                );
+
+                String modeValue = configuration.getString(
+                        "Режим " + slotNumber,
+                        category,
+                        legacyMode.name(),
+                        "Режим Auto Refill для этого слота."
+                );
+                profileRefillModes[profile.ordinal()][i] = RefillMode.fromConfig(modeValue, legacyMode);
+                profileRefillThresholds[profile.ordinal()][i] = configuration.getInt(
+                        "Порог " + slotNumber,
+                        category,
+                        legacyThreshold,
+                        1,
+                        64,
+                        "Порог Auto Refill для этого слота."
                 );
             }
         }
@@ -196,16 +224,26 @@ public final class QuickSlotConfig {
         configuration.get("HUD", "Y", 8).set(hudY);
         configuration.get("HUD", "Масштаб", 1.0D).set((double) hudScale);
         configuration.get("Профили", "Активный профиль", ProfileType.NORMAL.name()).set(activeProfile.name());
-        configuration.get("Пополнение", "Режим", RefillMode.EMPTY_ONLY.name()).set(refillMode.name());
-        configuration.get("Пополнение", "Порог", 16).set(refillThreshold);
+
+        // Оставляем старые общие значения синхронизированными для безопасного отката на предыдущую версию.
+        configuration.get("Пополнение", "Режим", DEFAULT_REFILL_MODE.name())
+                .set(profileRefillModes[ProfileType.NORMAL.ordinal()][0].name());
+        configuration.get("Пополнение", "Порог", DEFAULT_REFILL_THRESHOLD)
+                .set(profileRefillThresholds[ProfileType.NORMAL.ordinal()][0]);
 
         for (ProfileType profile : ProfileType.values()) {
             ItemCategory[] defaults = defaultsFor(profile);
+            String refillCategory = refillCategory(profile);
             for (int i = 0; i < 9; i++) {
-                configuration.get(profile.getConfigCategory(), "Слот " + (i + 1), defaults[i].name())
+                int slotNumber = i + 1;
+                configuration.get(profile.getConfigCategory(), "Слот " + slotNumber, defaults[i].name())
                         .set(profileRules[profile.ordinal()][i].name());
-                configuration.get(refillCategory(profile), "Слот " + (i + 1), true)
+                configuration.get(refillCategory, "Слот " + slotNumber, true)
                         .set(profileRefillEnabled[profile.ordinal()][i]);
+                configuration.get(refillCategory, "Режим " + slotNumber, DEFAULT_REFILL_MODE.name())
+                        .set(profileRefillModes[profile.ordinal()][i].name());
+                configuration.get(refillCategory, "Порог " + slotNumber, DEFAULT_REFILL_THRESHOLD)
+                        .set(profileRefillThresholds[profile.ordinal()][i]);
             }
 
             String blockCategory = blockPriorityCategory(profile);
@@ -238,8 +276,6 @@ public final class QuickSlotConfig {
     public int getHudY() { return hudY; }
     public float getHudScale() { return hudScale; }
     public ProfileType getActiveProfile() { return activeProfile; }
-    public RefillMode getRefillMode() { return refillMode; }
-    public int getRefillThreshold() { return refillThreshold; }
 
     public ItemCategory getRule(int hotbarIndex) {
         return getRule(activeProfile, hotbarIndex);
@@ -258,6 +294,28 @@ public final class QuickSlotConfig {
         if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return false;
         return profileRefillEnabled[profile.ordinal()][hotbarIndex];
     }
+
+    public RefillMode getRefillMode(int hotbarIndex) {
+        return getRefillMode(activeProfile, hotbarIndex);
+    }
+
+    public RefillMode getRefillMode(ProfileType profile, int hotbarIndex) {
+        if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return DEFAULT_REFILL_MODE;
+        return profileRefillModes[profile.ordinal()][hotbarIndex];
+    }
+
+    public int getRefillThreshold(int hotbarIndex) {
+        return getRefillThreshold(activeProfile, hotbarIndex);
+    }
+
+    public int getRefillThreshold(ProfileType profile, int hotbarIndex) {
+        if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return DEFAULT_REFILL_THRESHOLD;
+        return profileRefillThresholds[profile.ordinal()][hotbarIndex];
+    }
+
+    // Совместимость с кодом старых экранов: применяет изменение сразу ко всем слотам активного профиля.
+    public RefillMode getRefillMode() { return getRefillMode(0); }
+    public int getRefillThreshold() { return getRefillThreshold(0); }
 
     public boolean isPreferSameBlock() {
         return profilePreferSameBlock[activeProfile.ordinal()];
@@ -340,14 +398,27 @@ public final class QuickSlotConfig {
         save();
     }
 
+    public void setRefillMode(int hotbarIndex, RefillMode mode) {
+        if (hotbarIndex < 0 || hotbarIndex >= 9 || mode == null) return;
+        profileRefillModes[activeProfile.ordinal()][hotbarIndex] = mode;
+        save();
+    }
+
+    public void setRefillThreshold(int hotbarIndex, int threshold) {
+        if (hotbarIndex < 0 || hotbarIndex >= 9) return;
+        profileRefillThresholds[activeProfile.ordinal()][hotbarIndex] = Math.max(1, Math.min(64, threshold));
+        save();
+    }
+
     public void setRefillMode(RefillMode mode) {
         if (mode == null) return;
-        refillMode = mode;
+        for (int i = 0; i < 9; i++) profileRefillModes[activeProfile.ordinal()][i] = mode;
         save();
     }
 
     public void setRefillThreshold(int threshold) {
-        refillThreshold = Math.max(1, Math.min(64, threshold));
+        int clamped = Math.max(1, Math.min(64, threshold));
+        for (int i = 0; i < 9; i++) profileRefillThresholds[activeProfile.ordinal()][i] = clamped;
         save();
     }
 
@@ -387,6 +458,40 @@ public final class QuickSlotConfig {
     public void resetHotbar() {
         ItemCategory[] defaults = defaultsFor(activeProfile);
         System.arraycopy(defaults, 0, profileRules[activeProfile.ordinal()], 0, 9);
+        save();
+    }
+
+    public void copyActiveProfileTo(ProfileType target) {
+        copyProfile(activeProfile, target);
+    }
+
+    public void copyProfile(ProfileType source, ProfileType target) {
+        if (source == null || target == null || source == target) return;
+        int sourceIndex = source.ordinal();
+        int targetIndex = target.ordinal();
+
+        System.arraycopy(profileRules[sourceIndex], 0, profileRules[targetIndex], 0, 9);
+        System.arraycopy(profileRefillEnabled[sourceIndex], 0, profileRefillEnabled[targetIndex], 0, 9);
+        System.arraycopy(profileRefillModes[sourceIndex], 0, profileRefillModes[targetIndex], 0, 9);
+        System.arraycopy(profileRefillThresholds[sourceIndex], 0, profileRefillThresholds[targetIndex], 0, 9);
+        System.arraycopy(profileBlockPriority[sourceIndex], 0, profileBlockPriority[targetIndex], 0, DEFAULT_BLOCK_PRIORITY.length);
+        profilePreferSameBlock[targetIndex] = profilePreferSameBlock[sourceIndex];
+        save();
+    }
+
+    public void resetActiveProfile() {
+        int profileIndex = activeProfile.ordinal();
+        ItemCategory[] defaults = defaultsFor(activeProfile);
+        System.arraycopy(defaults, 0, profileRules[profileIndex], 0, 9);
+
+        for (int i = 0; i < 9; i++) {
+            profileRefillEnabled[profileIndex][i] = true;
+            profileRefillModes[profileIndex][i] = DEFAULT_REFILL_MODE;
+            profileRefillThresholds[profileIndex][i] = DEFAULT_REFILL_THRESHOLD;
+        }
+
+        System.arraycopy(DEFAULT_BLOCK_PRIORITY, 0, profileBlockPriority[profileIndex], 0, DEFAULT_BLOCK_PRIORITY.length);
+        profilePreferSameBlock[profileIndex] = true;
         save();
     }
 

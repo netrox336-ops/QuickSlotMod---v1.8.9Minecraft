@@ -200,7 +200,7 @@ public final class InventoryManager {
                             return new HotbarSwapAction(container, betterSource, hotbarIndex, "upgrade");
                         }
                     }
-                } else if (!isUpgradeable(rule) && config.isRefillEnabled(hotbarIndex) && shouldRefill(current)) {
+                } else if (!isUpgradeable(rule) && config.isRefillEnabled(hotbarIndex) && shouldRefill(current, hotbarIndex)) {
                     int mergeSource = findMergeSource(container, current);
                     if (mergeSource >= 0) {
                         return new MergeStacksAction(container, mergeSource, targetSlotNumber, "refill");
@@ -219,13 +219,13 @@ public final class InventoryManager {
         return null;
     }
 
-    private boolean shouldRefill(ItemStack current) {
+    private boolean shouldRefill(ItemStack current, int hotbarIndex) {
         if (current == null || current.getMaxStackSize() <= 1 || current.stackSize >= current.getMaxStackSize()) return false;
 
-        RefillMode mode = config.getRefillMode();
+        RefillMode mode = config.getRefillMode(hotbarIndex);
         if (mode == RefillMode.ALWAYS_MAX) return true;
         if (mode == RefillMode.BELOW_THRESHOLD) {
-            return current.stackSize < Math.min(config.getRefillThreshold(), current.getMaxStackSize());
+            return current.stackSize < Math.min(config.getRefillThreshold(hotbarIndex), current.getMaxStackSize());
         }
         return false;
     }
