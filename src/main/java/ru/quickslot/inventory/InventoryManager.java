@@ -8,10 +8,14 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import ru.quickslot.config.ProfileType;
 import ru.quickslot.config.QuickSlotConfig;
 import ru.quickslot.config.RefillMode;
+import ru.quickslot.item.BlockType;
 import ru.quickslot.item.ItemCategory;
 import ru.quickslot.item.ItemClassifier;
+
+import java.util.Arrays;
 
 public final class InventoryManager {
     private static final int MAIN_FIRST = 9;
@@ -27,9 +31,11 @@ public final class InventoryManager {
     private int cooldown;
     private int manualGraceTicks;
     private boolean wasContainerOpen;
+    private ProfileType rememberedProfile;
 
     public InventoryManager(QuickSlotConfig config) {
         this.config = config;
+        this.rememberedProfile = config.getActiveProfile();
     }
 
     @SubscribeEvent
@@ -41,6 +47,11 @@ public final class InventoryManager {
 
         EntityPlayerSP player = minecraft.thePlayer;
         if (player == null || minecraft.theWorld == null) return;
+
+        if (rememberedProfile != config.getActiveProfile()) {
+            rememberedProfile = config.getActiveProfile();
+            Arrays.fill(lastPreferredStacks, null);
+        }
 
         boolean containerOpen = minecraft.currentScreen instanceof GuiContainer;
         if (containerOpen) {
@@ -128,7 +139,7 @@ public final class InventoryManager {
             }
 
             if (ItemClassifier.matches(current, rule)) {
-                if (isUpgradeable(rule)) {
+                if (isUpgradeable(rule) && config.isAutoUpgrade(rule)) {
                     int betterSource = findBestSource(container, rule, targetSlotNumber, hotbarIndex, protectedSlotNumber);
                     if (betterSource >= 0) {
                         ItemStack better = container.getSlot(betterSource).getStack();
@@ -137,7 +148,7 @@ public final class InventoryManager {
                             return true;
                         }
                     }
-                } else if (config.isRefillEnabled(hotbarIndex) && shouldRefill(current)) {
+                } else if (!isUpgradeable(rule) && config.isRefillEnabled(hotbarIndex) && shouldRefill(current)) {
                     int mergeSource = findMergeSource(container, current);
                     if (mergeSource >= 0) {
                         mergeStacks(player, container, mergeSource, targetSlotNumber);
@@ -224,15 +235,24 @@ public final class InventoryManager {
                 if (sourceRule == category) continue;
             }
 
-            int priority = ItemClassifier.priority(stack, category);
-            if (preferred != null && sameStackKind(stack, preferred)) priority += 100000;
-
+            int priority = sourcePriority(stack, category, preferred);
             if (priority > bestPriority) {
                 bestPriority = priority;
                 bestSlot = slotNumber;
             }
         }
         return bestSlot;
+    }
+
+    private int sourcePriority(ItemStack stack, ItemCategory category, ItemStack preferred) {
+        if (category != ItemCategory.BLOCKS) return ItemClassifier.priority(stack, category);
+
+        int rank = config.getBlockPriorityRank(BlockType.fromStack(stack));
+        int priority = (BlockType.values().length - rank) * 10000 + stack.stackSize;
+        if (config.isPreferSameBlock() && preferred != null && sameStackKind(stack, preferred)) {
+            priority += 1000000;
+        }
+        return priority;
     }
 
     private int findMergeSource(Container container, ItemStack target) {
