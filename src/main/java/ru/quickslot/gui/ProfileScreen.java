@@ -21,13 +21,16 @@ public final class ProfileScreen extends GuiScreen {
     public void initGui() {
         buttonList.clear();
         int x = width / 2 - 100;
-        int y = height / 2 - 54;
+        int y = height / 2 - 82;
 
         ProfileType[] profiles = ProfileType.values();
         for (int i = 0; i < profiles.length; i++) {
             buttonList.add(new GuiButton(100 + i, x, y + i * 24, 200, 20, profileText(profiles[i])));
         }
-        buttonList.add(new GuiButton(10, x, y + 82, 200, 20, "Назад"));
+
+        buttonList.add(new GuiButton(20, x, y + 82, 200, 20, "Копировать активный профиль"));
+        buttonList.add(new GuiButton(21, x, y + 106, 200, 20, "Сбросить активный профиль"));
+        buttonList.add(new GuiButton(10, x, y + 138, 200, 20, "Назад"));
     }
 
     @Override
@@ -37,7 +40,14 @@ public final class ProfileScreen extends GuiScreen {
             initGui();
             return;
         }
-        if (button.id == 10) mc.displayGuiScreen(parent);
+
+        if (button.id == 20) {
+            mc.displayGuiScreen(new ProfileCopyScreen(this, config));
+        } else if (button.id == 21) {
+            mc.displayGuiScreen(new ProfileResetScreen(this, config));
+        } else if (button.id == 10) {
+            mc.displayGuiScreen(parent);
+        }
     }
 
     @Override
@@ -52,8 +62,8 @@ public final class ProfileScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         drawDefaultBackground();
-        drawCenteredString(fontRendererObj, "Профили хотбара", width / 2, height / 2 - 82, 0xFFFFFF);
-        drawCenteredString(fontRendererObj, "Выбери раскладку для текущей игры", width / 2, height / 2 - 68, 0xAAAAAA);
+        drawCenteredString(fontRendererObj, "Профили хотбара", width / 2, height / 2 - 110, 0xFFFFFF);
+        drawCenteredString(fontRendererObj, "Выбери активный профиль или управляй его настройками", width / 2, height / 2 - 96, 0xAAAAAA);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
