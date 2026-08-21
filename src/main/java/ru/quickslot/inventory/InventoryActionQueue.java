@@ -12,10 +12,10 @@ public final class InventoryActionQueue {
     private static final int CONFIRM_STABLE_TICKS = 3;
     private static final int ACTION_TIMEOUT_TICKS = 30;
     private static final int SUCCESS_COOLDOWN_TICKS = 2;
-    private static final int FAILURE_COOLDOWN_TICKS = 8;
     private static final int MAX_PENDING = 8;
 
     private final Deque<InventoryAction> pending = new ArrayDeque<InventoryAction>();
+    private final InventoryBackoffPolicy backoffPolicy = new InventoryBackoffPolicy();
     private InventoryAction active;
     private int activeTicks;
     private int stableTicks;
@@ -51,6 +51,7 @@ public final class InventoryActionQueue {
                     active = null;
                     activeTicks = 0;
                     stableTicks = 0;
+                    backoffPolicy.onSuccess();
                     cooldownTicks = SUCCESS_COOLDOWN_TICKS;
                 }
             } else {
@@ -96,7 +97,11 @@ public final class InventoryActionQueue {
         return pending.size() + (active == null ? 0 : 1);
     }
 
-    public void clear() {
+    public int getConsecutiveFailures() {
+        return backoffPolicy.getConsecutiveFailures();
+    }
+
+    public void cancelActions() {
         pending.clear();
         active = null;
         activeTicks = 0;
@@ -104,11 +109,16 @@ public final class InventoryActionQueue {
         cooldownTicks = 0;
     }
 
+    public void clear() {
+        cancelActions();
+        backoffPolicy.reset();
+    }
+
     private void failCurrent() {
         pending.clear();
         active = null;
         activeTicks = 0;
         stableTicks = 0;
-        cooldownTicks = FAILURE_COOLDOWN_TICKS;
+        cooldownTicks = backoffPolicy.onFailure();
     }
 }

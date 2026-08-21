@@ -28,6 +28,7 @@ public final class InventoryManager {
     private static final int HOTBAR_FIRST = 36;
     private static final int HOTBAR_LAST = 44;
     private static final int MANUAL_GRACE_TICKS = 10;
+    private static final int CURSOR_RELEASE_GRACE_TICKS = 6;
 
     private final Minecraft minecraft = Minecraft.getMinecraft();
     private final QuickSlotConfig config;
@@ -36,6 +37,7 @@ public final class InventoryManager {
 
     private int manualGraceTicks;
     private boolean wasContainerOpen;
+    private boolean cursorWasOccupied;
     private ProfileType rememberedProfile;
     private EntityPlayerSP rememberedPlayer;
     private int rememberedWindowId = -1;
@@ -63,6 +65,7 @@ public final class InventoryManager {
             actionQueue.clear();
             Arrays.fill(lastPreferredStacks, null);
             rememberedWindowId = -1;
+            cursorWasOccupied = false;
             return;
         }
 
@@ -73,16 +76,31 @@ public final class InventoryManager {
         }
 
         boolean containerOpen = minecraft.currentScreen instanceof GuiContainer;
+        if (containerOpen) wasContainerOpen = true;
+
+        boolean cursorOccupied = player.inventory.getItemStack() != null;
+        if (cursorOccupied) {
+            cursorWasOccupied = true;
+            actionQueue.cancelActions();
+            return;
+        }
+
+        if (cursorWasOccupied) {
+            cursorWasOccupied = false;
+            actionQueue.cancelActions();
+            int grace = config.isManualGraceEnabled() ? MANUAL_GRACE_TICKS : CURSOR_RELEASE_GRACE_TICKS;
+            manualGraceTicks = Math.max(manualGraceTicks, grace);
+        }
+
         if (containerOpen) {
-            wasContainerOpen = true;
-            actionQueue.clear();
+            actionQueue.cancelActions();
             return;
         }
 
         if (wasContainerOpen) {
             wasContainerOpen = false;
-            actionQueue.clear();
-            manualGraceTicks = config.isManualGraceEnabled() ? MANUAL_GRACE_TICKS : 0;
+            actionQueue.cancelActions();
+            manualGraceTicks = Math.max(manualGraceTicks, config.isManualGraceEnabled() ? MANUAL_GRACE_TICKS : 0);
         }
 
         if (manualGraceTicks > 0) {
@@ -132,6 +150,7 @@ public final class InventoryManager {
         Arrays.fill(lastPreferredStacks, null);
         manualGraceTicks = 0;
         wasContainerOpen = false;
+        cursorWasOccupied = false;
         rememberedWindowId = -1;
         rememberedPlayer = player;
         rememberedProfile = config.getActiveProfile();
