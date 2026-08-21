@@ -28,7 +28,8 @@ public final class QuickSlotScreen extends GuiScreen {
         buttonList.add(new GuiButton(5, x + 102, y + 102, 98, 20, "HUD"));
         buttonList.add(new GuiButton(7, x, y + 126, 98, 20, "Профили"));
         buttonList.add(new GuiButton(8, x + 102, y + 126, 98, 20, "Пополнение"));
-        buttonList.add(new GuiButton(11, x, y + 150, 200, 20, "Инвентарь"));
+        buttonList.add(new GuiButton(11, x, y + 150, 98, 20, "Инвентарь"));
+        buttonList.add(new GuiButton(12, x + 102, y + 150, 98, 20, "Выбор"));
         buttonList.add(new GuiButton(6, x, y + 180, 200, 20, "Готово"));
     }
 
@@ -72,6 +73,9 @@ public final class QuickSlotScreen extends GuiScreen {
                 break;
             case 11:
                 mc.displayGuiScreen(new InventorySettingsScreen(this, config));
+                break;
+            case 12:
+                mc.displayGuiScreen(new SmartSelectionScreen(this, config));
                 break;
             default:
                 break;

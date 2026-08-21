@@ -1,6 +1,7 @@
 package ru.quickslot.config;
 
 import net.minecraftforge.common.config.Configuration;
+import ru.quickslot.item.BlockType;
 import ru.quickslot.item.ItemCategory;
 
 import java.io.File;
@@ -42,9 +43,21 @@ public final class QuickSlotConfig {
             ItemCategory.ENDER_PEARL
     };
 
+    private static final BlockType[] DEFAULT_BLOCK_PRIORITY = {
+            BlockType.WOOL,
+            BlockType.PLANKS,
+            BlockType.END_STONE,
+            BlockType.CLAY,
+            BlockType.GLASS,
+            BlockType.OBSIDIAN,
+            BlockType.OTHER
+    };
+
     private final Configuration configuration;
     private final ItemCategory[][] profileRules = new ItemCategory[ProfileType.values().length][9];
     private final boolean[][] profileRefillEnabled = new boolean[ProfileType.values().length][9];
+    private final BlockType[][] profileBlockPriority = new BlockType[ProfileType.values().length][BlockType.values().length];
+    private final boolean[] profilePreferSameBlock = new boolean[ProfileType.values().length];
 
     private boolean enabled;
     private boolean resourceHudEnabled;
@@ -53,6 +66,9 @@ public final class QuickSlotConfig {
     private boolean protectSelectedSlot;
     private boolean stackConsolidationEnabled;
     private boolean manualGraceEnabled;
+    private boolean autoUpgradeSword;
+    private boolean autoUpgradePickaxe;
+    private boolean autoUpgradeAxe;
     private int hudX;
     private int hudY;
     private float hudScale;
@@ -72,6 +88,10 @@ public final class QuickSlotConfig {
         stackConsolidationEnabled = configuration.getBoolean("Объединять одинаковые стаки", "Инвентарь", false, "Объединяет одинаковые предметы в основном инвентаре.");
         manualGraceEnabled = configuration.getBoolean("Пауза после ручной работы", "Инвентарь", true, "После закрытия инвентаря QuickSlot короткое время не вмешивается.");
 
+        autoUpgradeSword = configuration.getBoolean("Автоулучшение меча", "Снаряжение", true, "Автоматически заменяет меч на более сильный.");
+        autoUpgradePickaxe = configuration.getBoolean("Автоулучшение кирки", "Снаряжение", true, "Автоматически заменяет кирку на более сильную.");
+        autoUpgradeAxe = configuration.getBoolean("Автоулучшение топора", "Снаряжение", true, "Автоматически заменяет топор на более сильный.");
+
         resourceHudEnabled = configuration.getBoolean("Показывать HUD ресурсов", "HUD", true, "Показывает количество ресурсов во всём инвентаре.");
         statusHudEnabled = configuration.getBoolean("Показывать состояние QuickSlot", "HUD", true, "Показывает активный профиль и состояние автосортировки.");
         hudX = configuration.getInt("X", "HUD", 8, 0, 10000, "Положение HUD по горизонтали.");
@@ -90,6 +110,7 @@ public final class QuickSlotConfig {
 
         loadProfiles();
         loadRefillSettings();
+        loadSmartSelection();
         if (configuration.hasChanged()) configuration.save();
     }
 
@@ -127,12 +148,48 @@ public final class QuickSlotConfig {
         }
     }
 
+    private void loadSmartSelection() {
+        for (ProfileType profile : ProfileType.values()) {
+            String category = blockPriorityCategory(profile);
+            profilePreferSameBlock[profile.ordinal()] = configuration.getBoolean(
+                    "Сохранять текущий блок",
+                    category,
+                    true,
+                    "Сначала пытается продолжать использовать тот же тип блока, который уже был в слоте."
+            );
+
+            boolean[] used = new boolean[BlockType.values().length];
+            for (int i = 0; i < DEFAULT_BLOCK_PRIORITY.length; i++) {
+                String raw = configuration.getString(
+                        "Приоритет " + (i + 1),
+                        category,
+                        DEFAULT_BLOCK_PRIORITY[i].name(),
+                        "Порядок выбора блоков."
+                );
+                BlockType candidate = BlockType.fromConfig(raw, DEFAULT_BLOCK_PRIORITY[i]);
+                if (used[candidate.ordinal()]) candidate = firstUnusedBlockType(used);
+                profileBlockPriority[profile.ordinal()][i] = candidate;
+                used[candidate.ordinal()] = true;
+            }
+        }
+    }
+
+    private BlockType firstUnusedBlockType(boolean[] used) {
+        for (BlockType type : DEFAULT_BLOCK_PRIORITY) {
+            if (!used[type.ordinal()]) return type;
+        }
+        return BlockType.OTHER;
+    }
+
     public void save() {
         configuration.get("Основное", "Включен", true).set(enabled);
         configuration.get("Основное", "Убирать ресурсы из хотбара", true).set(removeResourcesFromHotbar);
         configuration.get("Основное", "Защищать выбранный слот", true).set(protectSelectedSlot);
         configuration.get("Инвентарь", "Объединять одинаковые стаки", false).set(stackConsolidationEnabled);
         configuration.get("Инвентарь", "Пауза после ручной работы", true).set(manualGraceEnabled);
+        configuration.get("Снаряжение", "Автоулучшение меча", true).set(autoUpgradeSword);
+        configuration.get("Снаряжение", "Автоулучшение кирки", true).set(autoUpgradePickaxe);
+        configuration.get("Снаряжение", "Автоулучшение топора", true).set(autoUpgradeAxe);
         configuration.get("HUD", "Показывать HUD ресурсов", true).set(resourceHudEnabled);
         configuration.get("HUD", "Показывать состояние QuickSlot", true).set(statusHudEnabled);
         configuration.get("HUD", "X", 8).set(hudX);
@@ -150,6 +207,14 @@ public final class QuickSlotConfig {
                 configuration.get(refillCategory(profile), "Слот " + (i + 1), true)
                         .set(profileRefillEnabled[profile.ordinal()][i]);
             }
+
+            String blockCategory = blockPriorityCategory(profile);
+            configuration.get(blockCategory, "Сохранять текущий блок", true)
+                    .set(profilePreferSameBlock[profile.ordinal()]);
+            for (int i = 0; i < DEFAULT_BLOCK_PRIORITY.length; i++) {
+                configuration.get(blockCategory, "Приоритет " + (i + 1), DEFAULT_BLOCK_PRIORITY[i].name())
+                        .set(profileBlockPriority[profile.ordinal()][i].name());
+            }
         }
 
         for (int i = 0; i < 9; i++) {
@@ -166,6 +231,9 @@ public final class QuickSlotConfig {
     public boolean isProtectSelectedSlot() { return protectSelectedSlot; }
     public boolean isStackConsolidationEnabled() { return stackConsolidationEnabled; }
     public boolean isManualGraceEnabled() { return manualGraceEnabled; }
+    public boolean isAutoUpgradeSword() { return autoUpgradeSword; }
+    public boolean isAutoUpgradePickaxe() { return autoUpgradePickaxe; }
+    public boolean isAutoUpgradeAxe() { return autoUpgradeAxe; }
     public int getHudX() { return hudX; }
     public int getHudY() { return hudY; }
     public float getHudScale() { return hudScale; }
@@ -189,6 +257,31 @@ public final class QuickSlotConfig {
     public boolean isRefillEnabled(ProfileType profile, int hotbarIndex) {
         if (profile == null || hotbarIndex < 0 || hotbarIndex >= 9) return false;
         return profileRefillEnabled[profile.ordinal()][hotbarIndex];
+    }
+
+    public boolean isPreferSameBlock() {
+        return profilePreferSameBlock[activeProfile.ordinal()];
+    }
+
+    public BlockType getBlockPriority(int index) {
+        if (index < 0 || index >= DEFAULT_BLOCK_PRIORITY.length) return BlockType.OTHER;
+        return profileBlockPriority[activeProfile.ordinal()][index];
+    }
+
+    public int getBlockPriorityRank(BlockType type) {
+        if (type == null) return DEFAULT_BLOCK_PRIORITY.length;
+        BlockType[] order = profileBlockPriority[activeProfile.ordinal()];
+        for (int i = 0; i < order.length; i++) {
+            if (order[i] == type) return i;
+        }
+        return DEFAULT_BLOCK_PRIORITY.length;
+    }
+
+    public boolean isAutoUpgrade(ItemCategory category) {
+        if (category == ItemCategory.SWORD) return autoUpgradeSword;
+        if (category == ItemCategory.PICKAXE) return autoUpgradePickaxe;
+        if (category == ItemCategory.AXE) return autoUpgradeAxe;
+        return false;
     }
 
     public void setEnabled(boolean enabled) {
@@ -226,6 +319,21 @@ public final class QuickSlotConfig {
         save();
     }
 
+    public void setAutoUpgradeSword(boolean value) {
+        autoUpgradeSword = value;
+        save();
+    }
+
+    public void setAutoUpgradePickaxe(boolean value) {
+        autoUpgradePickaxe = value;
+        save();
+    }
+
+    public void setAutoUpgradeAxe(boolean value) {
+        autoUpgradeAxe = value;
+        save();
+    }
+
     public void setActiveProfile(ProfileType profile) {
         if (profile == null) return;
         activeProfile = profile;
@@ -246,6 +354,27 @@ public final class QuickSlotConfig {
     public void setRefillEnabled(int hotbarIndex, boolean enabled) {
         if (hotbarIndex < 0 || hotbarIndex >= 9) return;
         profileRefillEnabled[activeProfile.ordinal()][hotbarIndex] = enabled;
+        save();
+    }
+
+    public void setPreferSameBlock(boolean value) {
+        profilePreferSameBlock[activeProfile.ordinal()] = value;
+        save();
+    }
+
+    public void moveBlockPriority(int index, int direction) {
+        int target = index + direction;
+        if (index < 0 || index >= DEFAULT_BLOCK_PRIORITY.length || target < 0 || target >= DEFAULT_BLOCK_PRIORITY.length) return;
+        BlockType[] order = profileBlockPriority[activeProfile.ordinal()];
+        BlockType temp = order[index];
+        order[index] = order[target];
+        order[target] = temp;
+        save();
+    }
+
+    public void resetBlockPriority() {
+        System.arraycopy(DEFAULT_BLOCK_PRIORITY, 0, profileBlockPriority[activeProfile.ordinal()], 0, DEFAULT_BLOCK_PRIORITY.length);
+        profilePreferSameBlock[activeProfile.ordinal()] = true;
         save();
     }
 
@@ -279,6 +408,10 @@ public final class QuickSlotConfig {
 
     private String refillCategory(ProfileType profile) {
         return "Пополнение." + profile.getDisplayName();
+    }
+
+    private String blockPriorityCategory(ProfileType profile) {
+        return "Выбор блоков." + profile.getDisplayName();
     }
 
     private ItemCategory[] defaultsFor(ProfileType profile) {
